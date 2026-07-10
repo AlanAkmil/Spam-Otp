@@ -1,9 +1,9 @@
 {
-  "name": "otp-spam-web",
-  "version": "3.0.0",
-  "description": "OTP Spammer with client IP",
+  "name": "otp-spam",
+  "version": "1.0.0",
+  "description": "OTP Spammer",
   "main": "api/spam.js",
   "dependencies": {
-    "axios": "^1.6.2"
+    "axios": "^1.7.9"
   }
 }
