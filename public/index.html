@@ -17,7 +17,7 @@
       <input type="text" class="phone-field w-full bg-gray-700 text-white rounded-lg px-4 py-2 placeholder-gray-400" placeholder="08123456789">
     </div>
 
-    <button onclick="startSpam()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-4 transition">
+    <button onclick="startSpam()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg mt-4 transition disabled:opacity-50" id="spamBtn">
       🚀 Kirim Spam
     </button>
 
@@ -26,6 +26,7 @@
 
   <script>
     async function startSpam() {
+      const btn = document.getElementById('spamBtn');
       const fields = document.querySelectorAll('.phone-field');
       const phones = Array.from(fields).map(f => f.value.trim()).filter(v => v.length > 0);
       
@@ -34,7 +35,9 @@
         return;
       }
 
-      document.getElementById('result').innerHTML = '<p class="text-gray-400 text-center">⏳ Mengirim...</p>';
+      btn.disabled = true;
+      btn.textContent = '⏳ Mengirim...';
+      document.getElementById('result').innerHTML = '<p class="text-gray-400 text-center">⏳ Proses spam, mohon tunggu...</p>';
 
       try {
         const res = await fetch('/api/spam', {
@@ -66,6 +69,9 @@
         document.getElementById('result').innerHTML = html;
       } catch (e) {
         document.getElementById('result').innerHTML = `<p class="text-red-400 text-center">❌ ${e.message}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 Kirim Spam';
       }
     }
   </script>
