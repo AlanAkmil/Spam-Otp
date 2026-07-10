@@ -9,8 +9,6 @@
     body { background: #0b0f1a; font-family: 'Inter', sans-serif; }
     .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
     .glow { box-shadow: 0 0 40px rgba(99, 102, 241, 0.15); }
-    .animate-pulse-slow { animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 20px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -153,6 +151,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phones })
         });
+        
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         renderResult(data);
