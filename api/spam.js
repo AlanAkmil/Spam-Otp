@@ -111,7 +111,6 @@ async function sendRequest(endpoint, idx, phone) {
   const hostname = new URL(endpoint.url).hostname;
   const headers = endpoint.headers || {};
 
-  // Delay kecil biar gak terlalu agresif
   await new Promise(resolve => setTimeout(resolve, randomInt(1000, 3000)));
 
   for (let attempt = 0; attempt <= CONFIG.retries; attempt++) {
@@ -197,19 +196,19 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { phones } = req.body;
-  if (!phones || !Array.isArray(phones) || phones.length === 0 || phones.length > 3) {
-    return res.status(400).json({ error: 'Kirim minimal 1 dan maksimal 3 nomor di array "phones"' });
-  }
-
-  // Ambil IP asli pengguna
-  const clientIP = req.headers['cf-connecting-ip'] || 
-                   req.headers['x-forwarded-for']?.split(',')[0] || 
-                   req.headers['x-real-ip'] || 
-                   req.socket?.remoteAddress || 
-                   randomIP();
-
   try {
+    const { phones } = req.body;
+    
+    if (!phones || !Array.isArray(phones) || phones.length === 0 || phones.length > 3) {
+      return res.status(400).json({ error: 'Kirim 1-3 nomor di array "phones"' });
+    }
+
+    const clientIP = req.headers['cf-connecting-ip'] || 
+                     req.headers['x-forwarded-for']?.split(',')[0] || 
+                     req.headers['x-real-ip'] || 
+                     req.socket?.remoteAddress || 
+                     randomIP();
+
     const promises = phones.map(phone => spamNumber(phone, clientIP));
     const results = await Promise.all(promises);
 
@@ -228,6 +227,6 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
